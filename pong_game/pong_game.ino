@@ -9,7 +9,8 @@
 #define HARDWARE_TYPE MD_MAX72XX::GENERIC_HW
 #define MAX_DEVICES 1
 
-#define EEPROM_ADDR_BRIGHTNESS 0
+#define EEPROM_ADDR_SETTINGS 0
+#define CURRENT_SETTINGS_VERSION 1
 #define DEFAULT_BRIGHTNESS 5
 
 #define CLK_PIN 13
@@ -18,7 +19,7 @@
 
 #define PAUSE_BTN_PIN 2
 #define BRIGHTNESS_BTN_PIN 3
-#define DEBOUNCE_DELAY 200 // ms
+#define DEBOUNCE_DELAY 200
 
 #define FIRST_PLAYER_PADDLE_PIN A0
 #define SECOND_PLAYER_PADDLE_PIN A1
@@ -50,6 +51,13 @@ struct Ball {
   MovementVector direction;
 };
 
+struct GameSettings {
+  uint8_t version;
+  uint8_t brightness_level;
+};
+
+GameSettings settings;
+
 unsigned int brightness_level;
 MD_MAX72XX display = MD_MAX72XX(HARDWARE_TYPE, CS_PIN, MAX_DEVICES);
 
@@ -75,13 +83,16 @@ bool pause_state = false;
 void setup() {
   // timer interrupt set up
   noInterrupts();
+
   TCCR1A = 0;
   TCCR1B = 0;
   TCNT1  = 0;
+
   OCR1A = 2499;
   TCCR1B |= (1 << WGM12); 
   TCCR1B |= (1 << CS11) | (1 << CS10);
   TIMSK1 |= (1 << OCIE1A);
+
   interrupts();
 
   // external interrupt set up
@@ -93,11 +104,7 @@ void setup() {
   
   // display setup
   display.begin();
-
-  brightness_level = EEPROM.read(EEPROM_ADDR_BRIGHTNESS);
-  if (brightness_level > 15) brightness_level = DEFAULT_BRIGHTNESS;
-  display.control(MD_MAX72XX::INTENSITY, brightness_level);
-  
+  loadSettings();
   display.clear();
 
   // for a bit of randomness
@@ -126,7 +133,7 @@ void setup() {
 void loop() {
   if (brightness_changed_flag) {
     brightness_changed_flag = false;
-    EEPROM.write(EEPROM_ADDR_BRIGHTNESS, brightness_level);
+    saveBrightness();
     display.control(MD_MAX72XX::INTENSITY, brightness_level);
   }
 
@@ -229,6 +236,29 @@ void onBrightnessButtonPress() {
   }
 
   last_interrupt_time = interrupt_time;
+}
+
+// EEPROM functions
+void loadSettings() {
+  GameSettings stored;
+  EEPROM.get(EEPROM_ADDR_SETTINGS, stored);
+
+  if (stored.version != CURRENT_SETTINGS_VERSION || stored.brightness_level > 15) {
+    settings.version = CURRENT_SETTINGS_VERSION;
+    settings.brightness_level = DEFAULT_BRIGHTNESS;
+    EEPROM.put(EEPROM_ADDR_SETTINGS, settings);
+  } 
+  else {
+    settings = stored;
+  }
+
+  brightness_level = settings.brightness_level;
+  display.control(MD_MAX72XX::INTENSITY, brightness_level);
+}
+
+void saveBrightness() {
+  settings.brightness_level = brightness_level;
+  EEPROM.put(EEPROM_ADDR_SETTINGS, settings);
 }
 
 // game objects update functions
