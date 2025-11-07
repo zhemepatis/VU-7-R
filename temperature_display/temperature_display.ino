@@ -7,6 +7,10 @@
 #define TENS_ENABLER_PIN 7
 #define ONES_ENABLER_PIN 6
 
+#define MEASUREMENT_DELAY 1000
+
+#define TEMPERATURE_SENSOR_PIN A0
+
 int enabler_pins[2] = {
   TENS_ENABLER_PIN,
   ONES_ENABLER_PIN
@@ -27,7 +31,8 @@ byte digits[10] = {
 
 byte dash = 0b01000000; // dash
 
-int counter = 0;
+int temperature;
+unsigned long last_count_time = MEASUREMENT_DELAY + 1;
 
 void setup() {
   // set-up shift register pins
@@ -41,41 +46,80 @@ void setup() {
 
   digitalWrite(TENS_ENABLER_PIN, LOW);
   digitalWrite(ONES_ENABLER_PIN, LOW);
+
+  // temperature sensor pin
+  pinMode(TEMPERATURE_SENSOR_PIN, INPUT);
+
+  // debugging
+  Serial.begin(9600);
 }
 
 void loop() {
-  // TODO:
-  // add temperature logic
-  // add timer
+  // check if update needed
+  if (millis() - last_count_time >= MEASUREMENT_DELAY) {
+    last_count_time = millis();
 
-  displayNumber(counter);
-  delay(500); // increment every second
-  counter++;
-  if (counter > 99) counter = 0;
+    temperature = getTemperature();
+    
+    // temperature
+    Serial.print("Temperature: ");
+    Serial.println(temperature);
+  }
+
+  // display current temperature
+  displayNumber(temperature);
+}
+
+float getTemperature() {
+  int input = analogRead(TEMPERATURE_SENSOR_PIN);
+  float voltage = input * (5.0 / 1023.0);
+  float temperature = voltage * 100.0;
+  return temperature;
 }
 
 void displayNumber(int number) {
-  int ones = number % 10;
-  int tens = (number / 10) % 10;
-
-  // refresh quickly
-  for (int i = 0; i < 200; i++) {
-    // tens digit
-    displayDigit(tens, TENS_ENABLER_PIN);
+  if (number < 0 || number >= 100) {
+  	displayDash(TENS_ENABLER_PIN);
     delayMicroseconds(1000);
-
-    // ones digit
-    displayDigit(ones, ONES_ENABLER_PIN);
+    
+    displayDash(ONES_ENABLER_PIN);
     delayMicroseconds(1000);
+    
+    return;
   }
+  
+  int tens = (number / 10) % 10;
+  int ones = number % 10;
+  
+  Serial.println(number);
+
+  // tens digit
+  displayDigit(tens, TENS_ENABLER_PIN);
+  delayMicroseconds(1000);
+
+  // ones digit
+  displayDigit(ones, ONES_ENABLER_PIN);
+  delayMicroseconds(1000);
+}
+
+void displayDash(int enabler_pin) {
+  // turn off all displays
+  disableDisplay(TENS_ENABLER_PIN);
+  disableDisplay(ONES_ENABLER_PIN);
+  
+  // write data to shift-register
+  digitalWrite(LATCH_PIN, LOW);
+  shiftOut(DATA_PIN, CLOCK_PIN, MSBFIRST, dash);
+  digitalWrite(LATCH_PIN, HIGH);
+
+  // enable specified display
+  enableDisplay(enabler_pin);
 }
 
 void displayDigit(int digit, int enabler_pin) {
   // turn off all displays
-  for (int i = 0; i < DISPLAY_NUM; ++i) {
-    int curr_pin = enabler_pins[i];
-    disableDisplay(curr_pin);
-  }
+  disableDisplay(TENS_ENABLER_PIN);
+  disableDisplay(ONES_ENABLER_PIN);
   
   // write data to shift-register
   digitalWrite(LATCH_PIN, LOW);
