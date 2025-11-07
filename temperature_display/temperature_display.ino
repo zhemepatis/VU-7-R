@@ -1,42 +1,95 @@
-#define TEMP_SENSOR_PIN A0
+#define DATA_PIN 8
+#define CLOCK_PIN 10
+#define LATCH_PIN 9
 
-#define MEASURE_BTN_PIN 2
-#define DEBOUNCE_DELAY 20 // ms
+#define DISPLAY_NUM 2
 
-#define SOURCE_VOLTAGE 5.0 // volts
+#define TENS_ENABLER_PIN 7
+#define ONES_ENABLER_PIN 6
 
-bool temperature_measurement_flag = true;
+int enabler_pins[2] = {
+  TENS_ENABLER_PIN,
+  ONES_ENABLER_PIN
+};
 
-float temperature;
+byte digits[10] = {
+  0b00111111, // 0
+  0b00000110, // 1
+  0b01011011, // 2
+  0b01001111, // 3
+  0b01100110, // 4
+  0b01101101, // 5
+  0b01111101, // 6
+  0b00000111, // 7
+  0b01111111, // 8
+  0b01101111  // 9
+};
+
+byte dash = 0b01000000; // dash
+
+int counter = 0;
 
 void setup() {
-  Serial.begin(9600);
+  // set-up shift register pins
+  pinMode(DATA_PIN, OUTPUT);
+  pinMode(CLOCK_PIN, OUTPUT);
+  pinMode(LATCH_PIN, OUTPUT);
 
-  pinMode(MEASURE_BTN_PIN, INPUT_PULLUP);
-  attachInterrupt(digitalPinToInterrupt(MEASURE_BTN_PIN), onMeasureButtonPress, FALLING);
+  // set-up mosfet pins
+  pinMode(TENS_ENABLER_PIN, OUTPUT);
+  pinMode(ONES_ENABLER_PIN, OUTPUT);
+
+  digitalWrite(TENS_ENABLER_PIN, LOW);
+  digitalWrite(ONES_ENABLER_PIN, LOW);
 }
 
 void loop() {
-  if (temperature_measurement_flag) {
-    int input = analogRead(TEMP_SENSOR_PIN);
-    float voltage = input * SOURCE_VOLTAGE / 1023.0; 
-    
-    temperature = voltage * 100.0;
-    Serial.print("Temperature: ");
-    Serial.print(temperature);
-    Serial.println(" C");
+  // TODO:
+  // add temperature logic
+  // add timer
 
-    temperature_measurement_flag = false;
+  displayNumber(counter);
+  delay(500); // increment every second
+  counter++;
+  if (counter > 99) counter = 0;
+}
+
+void displayNumber(int number) {
+  int ones = number % 10;
+  int tens = (number / 10) % 10;
+
+  // refresh quickly
+  for (int i = 0; i < 200; i++) {
+    // tens digit
+    displayDigit(tens, TENS_ENABLER_PIN);
+    delayMicroseconds(1000);
+
+    // ones digit
+    displayDigit(ones, ONES_ENABLER_PIN);
+    delayMicroseconds(1000);
   }
 }
 
-void onMeasureButtonPress() {
-  static unsigned long last_interrupt_time = 0;
-  unsigned long interrupt_time = millis();
-
-  if (interrupt_time - last_interrupt_time > DEBOUNCE_DELAY) {
-    temperature_measurement_flag = true;
+void displayDigit(int digit, int enabler_pin) {
+  // turn off all displays
+  for (int i = 0; i < DISPLAY_NUM; ++i) {
+    int curr_pin = enabler_pins[i];
+    disableDisplay(curr_pin);
   }
+  
+  // write data to shift-register
+  digitalWrite(LATCH_PIN, LOW);
+  shiftOut(DATA_PIN, CLOCK_PIN, MSBFIRST, digits[digit]);
+  digitalWrite(LATCH_PIN, HIGH);
 
-  last_interrupt_time = interrupt_time;
+  // enable specified display
+  enableDisplay(enabler_pin);
+}
+
+void enableDisplay(int enabler_pin) {
+  digitalWrite(enabler_pin, HIGH);
+}
+
+void disableDisplay(int enabler_pin) {
+  digitalWrite(enabler_pin, LOW);
 }
