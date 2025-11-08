@@ -7,7 +7,7 @@
 #define TENS_ENABLER_PIN 7
 #define ONES_ENABLER_PIN 6
 
-#define MEASUREMENT_DELAY 1000
+#define MEASUREMENT_DELAY 5000
 
 #define TEMPERATURE_SENSOR_PIN A0
 
@@ -31,7 +31,7 @@ byte digits[10] = {
 
 byte dash = 0b01000000; // dash
 
-int temperature;
+float temperature;
 unsigned long last_count_time = MEASUREMENT_DELAY + 1;
 
 void setup() {
@@ -90,8 +90,6 @@ void displayNumber(int number) {
   
   int tens = (number / 10) % 10;
   int ones = number % 10;
-  
-  Serial.println(number);
 
   // tens digit
   displayDigit(tens, TENS_ENABLER_PIN);
