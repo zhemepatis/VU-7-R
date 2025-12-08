@@ -1,15 +1,15 @@
-#define DATA_PIN 8
-#define CLOCK_PIN 10
-#define LATCH_PIN 9
+#define DATA_PIN 23
+#define CLOCK_PIN 18
+#define LATCH_PIN 5
 
 #define DISPLAY_NUM 2
 
-#define TENS_ENABLER_PIN 7
-#define ONES_ENABLER_PIN 6
+#define TENS_ENABLER_PIN 26
+#define ONES_ENABLER_PIN 27
 
 #define MEASUREMENT_DELAY 5000
 
-#define TEMPERATURE_SENSOR_PIN A0
+#define TEMPERATURE_SENSOR_PIN 34
 
 int enabler_pins[2] = {
   TENS_ENABLER_PIN,
@@ -72,7 +72,7 @@ void loop() {
 
 float getTemperature() {
   int input = analogRead(TEMPERATURE_SENSOR_PIN);
-  float voltage = input * (5.0 / 1023.0);
+  float voltage = input * (3.3 / 4095.0);
   float temperature = voltage * 100.0;
   return temperature;
 }
