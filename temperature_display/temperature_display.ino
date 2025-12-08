@@ -1,3 +1,9 @@
+#include <WiFi.h>
+#include <HTTPClient.h>
+
+#include "./secrets/wifi_creadentials.h"
+#include "./secrets/urls.h"
+
 #define DATA_PIN 23
 #define CLOCK_PIN 18
 #define LATCH_PIN 5
@@ -7,10 +13,14 @@
 #define TENS_ENABLER_PIN 26
 #define ONES_ENABLER_PIN 27
 
-#define MEASUREMENT_DELAY 5000
+#define MEASUREMENT_DELAY 10000
 
 #define TEMPERATURE_SENSOR_PIN 34
 
+// server settings
+String server_url = SERVER_URL;
+
+// display settings
 int enabler_pins[2] = {
   TENS_ENABLER_PIN,
   ONES_ENABLER_PIN
@@ -31,27 +41,31 @@ byte digits[10] = {
 
 byte dash = 0b01000000; // dash
 
+// temperature variables
 float temperature;
 unsigned long last_count_time = MEASUREMENT_DELAY + 1;
 
 void setup() {
   // set-up shift register pins
-  pinMode(DATA_PIN, OUTPUT);
-  pinMode(CLOCK_PIN, OUTPUT);
-  pinMode(LATCH_PIN, OUTPUT);
+  // pinMode(DATA_PIN, OUTPUT);
+  // pinMode(CLOCK_PIN, OUTPUT);
+  // pinMode(LATCH_PIN, OUTPUT);
 
   // set-up mosfet pins
-  pinMode(TENS_ENABLER_PIN, OUTPUT);
-  pinMode(ONES_ENABLER_PIN, OUTPUT);
+  // pinMode(TENS_ENABLER_PIN, OUTPUT);
+  // pinMode(ONES_ENABLER_PIN, OUTPUT);
 
-  digitalWrite(TENS_ENABLER_PIN, LOW);
-  digitalWrite(ONES_ENABLER_PIN, LOW);
+  // digitalWrite(TENS_ENABLER_PIN, LOW);
+  // digitalWrite(ONES_ENABLER_PIN, LOW);
 
   // temperature sensor pin
   pinMode(TEMPERATURE_SENSOR_PIN, INPUT);
 
   // debugging
-  Serial.begin(9600);
+  Serial.begin(115200);
+
+  // wi-fi connection
+  connectToWiFi();
 }
 
 void loop() {
@@ -64,11 +78,51 @@ void loop() {
     // temperature
     Serial.print("Temperature: ");
     Serial.println(temperature);
+
+    // send request
+    HTTPClient http;
+    http.setReuse(false);
+    int begin = http.begin(server_url);
+
+    Serial.print("wifi status: ");
+    Serial.println(WiFi.status());
+
+    Serial.print("begin: ");
+    Serial.println(begin);
+
+    http.addHeader("Content-Type", "application/json");
+    String payload = "{\"value\":" + String(temperature) + "}";
+    int httpCode = http.POST(payload);
+
+    Serial.print("httpCode: ");
+    Serial.println(httpCode);
+
+    int connected = http.connected();
+    Serial.print("connected: ");
+    Serial.println(connected);
+
+    http.end();
   }
 
   // display current temperature
-  displayNumber(temperature);
+  // displayNumber(temperature);
 }
+
+// wi-fi functions
+void connectToWiFi() {
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+
+  Serial.println("Connected.");
+  Serial.println(WiFi.localIP());
+}
+
+// temperature functions
 
 float getTemperature() {
   int input = analogRead(TEMPERATURE_SENSOR_PIN);
@@ -76,6 +130,8 @@ float getTemperature() {
   float temperature = voltage * 100.0;
   return temperature;
 }
+
+// display functions
 
 void displayNumber(int number) {
   if (number < 0 || number >= 100) {
