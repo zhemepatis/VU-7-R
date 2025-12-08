@@ -1,20 +1,18 @@
 using Microsoft.AspNetCore.Mvc;
+using Temperature.API.Models;
+using Temperature.API.Services;
 
 [ApiController]
 [Route("api/[controller]")]
 public class TemperatureController : ControllerBase
 {
-    private static readonly List<TempReading> Data = [];
+    private static readonly List<AddTemperatureRecordRequest> Data = [];
 
-    [HttpPost]
-    public IActionResult Post([FromBody] TempReading reading)
+    private ITemperatureRecordsService _temperatureRecordsService;
+
+    public TemperatureController(ITemperatureRecordsService temperatureRecordsService)
     {
-        Console.WriteLine("POST request");
-
-        Data.Add(reading);
-        Console.WriteLine($"Received: {reading.Value}°C at {reading.Timestamp}");
-
-        return Ok(new { status = "ok" });
+        _temperatureRecordsService = temperatureRecordsService;
     }
 
     [HttpGet]
@@ -23,10 +21,11 @@ public class TemperatureController : ControllerBase
         Console.WriteLine("GET request");
         return Ok(Data);
     }
-}
 
-public class TempReading
-{
-    public float Value { get; init; }
-    public DateTime Timestamp { get; init; } = DateTime.Now;
+    [HttpPost]
+    public IActionResult Post([FromBody] AddTemperatureRecordRequest request)
+    {
+        _temperatureRecordsService.Add(request);
+        return Ok(new { status = "ok" });
+    }
 }

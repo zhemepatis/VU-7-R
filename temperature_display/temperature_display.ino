@@ -91,7 +91,7 @@ void loop() {
     Serial.println(begin);
 
     http.addHeader("Content-Type", "application/json");
-    String payload = "{\"value\":" + String(temperature) + "}";
+    String payload = "{\"Temperature\":" + String(temperature) + "}";
     int httpCode = http.POST(payload);
 
     Serial.print("httpCode: ");
