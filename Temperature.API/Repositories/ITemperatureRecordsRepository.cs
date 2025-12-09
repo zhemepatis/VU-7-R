@@ -4,5 +4,6 @@ namespace Temperature.API.Repositories;
 
 public interface ITemperatureRecordsRepository
 {
-    public void Add(AddTemperatureRecordDto dto);
+    public Task<List<TemperatureRecordDto>> GetInterval(GetTemperatureIntervalDto dto);
+    public Task Add(AddTemperatureRecordDto dto);
 }

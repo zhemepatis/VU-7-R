@@ -12,9 +12,16 @@ public class TemperatureRecordsService : ITemperatureRecordsService
         _temperatureRecordsRepository = temperatureRecordsRepository;
     }
 
-    public void Add(AddTemperatureRecordRequest request)
+    public async Task<List<TemperatureRecordDto>> GetInterval(GetTemperatureIntervalRequest request)
+    {
+        var dto = new GetTemperatureIntervalDto(request.IntervalStart, request.IntervalEnd);
+        var results = await _temperatureRecordsRepository.GetInterval(dto);
+        return results;
+    }
+
+    public async Task Add(AddTemperatureRecordRequest request)
     {
         var dto = new AddTemperatureRecordDto(request.Temperature);
-        _temperatureRecordsRepository.Add(dto);
+        await _temperatureRecordsRepository.Add(dto);
     }
 }

@@ -1,3 +1,4 @@
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Temperature.API.Models;
 using Temperature.API.Services;
@@ -6,8 +7,6 @@ using Temperature.API.Services;
 [Route("api/[controller]")]
 public class TemperatureController : ControllerBase
 {
-    private static readonly List<AddTemperatureRecordRequest> Data = [];
-
     private ITemperatureRecordsService _temperatureRecordsService;
 
     public TemperatureController(ITemperatureRecordsService temperatureRecordsService)
@@ -16,16 +15,16 @@ public class TemperatureController : ControllerBase
     }
 
     [HttpGet]
-    public IActionResult Get()
+    public async Task<IActionResult> Get([FromQuery] GetTemperatureIntervalRequest request)
     {
-        Console.WriteLine("GET request");
-        return Ok(Data);
+        var results = await _temperatureRecordsService.GetInterval(request);
+        return Ok(results);
     }
 
     [HttpPost]
-    public IActionResult Post([FromBody] AddTemperatureRecordRequest request)
+    public async Task<IActionResult> Post([FromBody] AddTemperatureRecordRequest request)
     {
-        _temperatureRecordsService.Add(request);
+        await _temperatureRecordsService.Add(request);
         return Ok(new { status = "ok" });
     }
 }
