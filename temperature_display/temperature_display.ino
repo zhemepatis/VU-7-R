@@ -46,12 +46,16 @@ double temperature;
 
 // interrupt variables
 hw_timer_t* measurement_timer = NULL;
-portMUX_TYPE timer_mutex = portMUX_INITIALIZER_UNLOCKED;
 volatile bool measurement_flag = true;
+
+hw_timer_t* display_timer = NULL;
+volatile bool display_refresh_flag = true;
+volatile int display_digit_index = 0;   // 0 = tens, 1 = ones
 
 void setup() {
   // interrupt set-up
   setupMeasurementTimer();
+  setupDisplayTimer();
 
   // set-up shift register pins
   pinMode(DATA_PIN, OUTPUT);
@@ -77,40 +81,46 @@ void setup() {
 
 void loop() {
   if (measurement_flag) {
-    portENTER_CRITICAL(&timer_mutex);
     measurement_flag = false;
-    portEXIT_CRITICAL(&timer_mutex);
 
-    // get & send measurements
     temperature = getTemperature();
-    sendTemperatureToServer(temperature);
 
-    // print temperature
     Serial.print("Temperature: ");
     Serial.println(temperature);
+
+    sendTemperatureToServer(temperature);
   }
 
-  // display current temperature
-  displayNumber(temperature);
+  if (display_refresh_flag) {
+    display_refresh_flag = false;
+    refreshDisplay();
+  }
 }
 
 // timer interrupts
+
 void IRAM_ATTR onMeasurementTimer() {
-  portENTER_CRITICAL_ISR(&timer_mutex);
   measurement_flag = true;
-  portEXIT_CRITICAL_ISR(&timer_mutex);
 }
 
 void setupMeasurementTimer() {
-    measurement_timer = timerBegin(1000000);   
-    
-    timerAttachInterrupt(measurement_timer, &onMeasurementTimer);
+  measurement_timer = timerBegin(1000000);   
+  timerAttachInterrupt(measurement_timer, &onMeasurementTimer);
+  timerAlarm(measurement_timer, 10000000, true, 0);
+}
 
-    // set alarm to 10 seconds (10,000,000 µs)
-    timerAlarm(measurement_timer, 10000000, true, 0);
+void IRAM_ATTR onDisplayTimer() {
+  display_refresh_flag = true;
+}
+
+void setupDisplayTimer() {
+  display_timer = timerBegin(200000);
+  timerAttachInterrupt(display_timer, &onDisplayTimer);
+  timerAlarm(display_timer, 1000, true, 0); // 1 kHz
 }
 
 // wi-fi functions
+
 void setupWiFi() {
   WiFi.mode(WIFI_STA);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
@@ -147,55 +157,32 @@ float getTemperature() {
 
 // display functions
 
-void displayNumber(int number) {
-  if (number < 0 || number >= 100) {
-  	displayDash(TENS_ENABLER_PIN);
-    delayMicroseconds(1000);
-    
-    displayDash(ONES_ENABLER_PIN);
-    delayMicroseconds(1000);
-    
-    return;
-  }
-  
-  int tens = (number / 10) % 10;
-  int ones = number % 10;
+void refreshDisplay() {
+    static int current_digit = 0;
 
-  // tens digit
-  displayDigit(tens, TENS_ENABLER_PIN);
-  delayMicroseconds(1000);
+    int temp = (int)temperature;
+    if (temp < 0 || temp > 99) temp = -1;
 
-  // ones digit
-  displayDigit(ones, ONES_ENABLER_PIN);
-  delayMicroseconds(1000);
-}
+    int tens = temp / 10;
+    int ones = temp % 10;
 
-void displayDash(int enabler_pin) {
-  // turn off all displays
-  disableDisplay(TENS_ENABLER_PIN);
-  disableDisplay(ONES_ENABLER_PIN);
-  
-  // write data to shift-register
-  digitalWrite(LATCH_PIN, LOW);
-  shiftOut(DATA_PIN, CLOCK_PIN, MSBFIRST, dash);
-  digitalWrite(LATCH_PIN, HIGH);
+    disableDisplay(TENS_ENABLER_PIN);
+    disableDisplay(ONES_ENABLER_PIN);
 
-  // enable specified display
-  enableDisplay(enabler_pin);
-}
+    digitalWrite(LATCH_PIN, LOW);
 
-void displayDigit(int digit, int enabler_pin) {
-  // turn off all displays
-  disableDisplay(TENS_ENABLER_PIN);
-  disableDisplay(ONES_ENABLER_PIN);
-  
-  // write data to shift-register
-  digitalWrite(LATCH_PIN, LOW);
-  shiftOut(DATA_PIN, CLOCK_PIN, MSBFIRST, digits[digit]);
-  digitalWrite(LATCH_PIN, HIGH);
+    if (current_digit == 0) {
+      shiftOut(DATA_PIN, CLOCK_PIN, MSBFIRST, (temp < 0 ? dash : digits[tens]));
+      digitalWrite(LATCH_PIN, HIGH);
+      enableDisplay(TENS_ENABLER_PIN);
+    } 
+    else {
+      shiftOut(DATA_PIN, CLOCK_PIN, MSBFIRST, (temp < 0 ? dash : digits[ones]));
+      digitalWrite(LATCH_PIN, HIGH);
+      enableDisplay(ONES_ENABLER_PIN);
+    }
 
-  // enable specified display
-  enableDisplay(enabler_pin);
+    current_digit ^= 1;
 }
 
 void enableDisplay(int enabler_pin) {
