@@ -1,3 +1,3 @@
 namespace Temperature.API.Models;
 
-public record GetTemperatureIntervalRequest(DateTime IntervalStart, DateTime IntervalEnd);
+public record GetTemperatureIntervalRequest(DateTimeOffset IntervalStart, DateTimeOffset IntervalEnd);

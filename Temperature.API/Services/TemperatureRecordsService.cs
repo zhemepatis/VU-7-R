@@ -14,7 +14,7 @@ public class TemperatureRecordsService : ITemperatureRecordsService
 
     public async Task<List<TemperatureRecordDto>> GetInterval(GetTemperatureIntervalRequest request)
     {
-        var dto = new GetTemperatureIntervalDto(request.IntervalStart, request.IntervalEnd);
+        var dto = new GetTemperatureIntervalDto(request.IntervalStart.UtcDateTime, request.IntervalEnd.UtcDateTime);
         var results = await _temperatureRecordsRepository.GetInterval(dto);
         return results;
     }
