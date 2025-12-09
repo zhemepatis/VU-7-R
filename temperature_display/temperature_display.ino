@@ -141,7 +141,10 @@ void sendTemperatureToServer(double value) {
 
   http.addHeader("Content-Type", "application/json");
   String payload = "{\"Temperature\":" + String(value) + "}";
-  http.POST(payload);
+  
+  int http_status_code = http.POST(payload);
+  Serial.print("HTTP status code: ");
+  Serial.println(http_status_code);
 
   http.end();
 }
