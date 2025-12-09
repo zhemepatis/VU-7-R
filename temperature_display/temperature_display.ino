@@ -42,21 +42,28 @@ byte digits[10] = {
 byte dash = 0b01000000; // dash
 
 // temperature variables
-float temperature;
-unsigned long last_count_time = MEASUREMENT_DELAY + 1;
+double temperature;
+
+// interrupt variables
+hw_timer_t* measurement_timer = NULL;
+portMUX_TYPE timer_mutex = portMUX_INITIALIZER_UNLOCKED;
+volatile bool measurement_flag = true;
 
 void setup() {
+  // interrupt set-up
+  setupMeasurementTimer();
+
   // set-up shift register pins
-  // pinMode(DATA_PIN, OUTPUT);
-  // pinMode(CLOCK_PIN, OUTPUT);
-  // pinMode(LATCH_PIN, OUTPUT);
+  pinMode(DATA_PIN, OUTPUT);
+  pinMode(CLOCK_PIN, OUTPUT);
+  pinMode(LATCH_PIN, OUTPUT);
 
   // set-up mosfet pins
-  // pinMode(TENS_ENABLER_PIN, OUTPUT);
-  // pinMode(ONES_ENABLER_PIN, OUTPUT);
+  pinMode(TENS_ENABLER_PIN, OUTPUT);
+  pinMode(ONES_ENABLER_PIN, OUTPUT);
 
-  // digitalWrite(TENS_ENABLER_PIN, LOW);
-  // digitalWrite(ONES_ENABLER_PIN, LOW);
+  digitalWrite(TENS_ENABLER_PIN, LOW);
+  digitalWrite(ONES_ENABLER_PIN, LOW);
 
   // temperature sensor pin
   pinMode(TEMPERATURE_SENSOR_PIN, INPUT);
@@ -65,61 +72,68 @@ void setup() {
   Serial.begin(115200);
 
   // wi-fi connection
-  connectToWiFi();
+  setupWiFi();
 }
 
 void loop() {
-  // check if update needed
-  if (millis() - last_count_time >= MEASUREMENT_DELAY) {
-    last_count_time = millis();
+  if (measurement_flag) {
+    portENTER_CRITICAL(&timer_mutex);
+    measurement_flag = false;
+    portEXIT_CRITICAL(&timer_mutex);
 
+    // get & send measurements
     temperature = getTemperature();
-    
-    // temperature
+    sendTemperatureToServer(temperature);
+
+    // print temperature
     Serial.print("Temperature: ");
     Serial.println(temperature);
-
-    // send request
-    HTTPClient http;
-    http.setReuse(false);
-    int begin = http.begin(server_url);
-
-    Serial.print("wifi status: ");
-    Serial.println(WiFi.status());
-
-    Serial.print("begin: ");
-    Serial.println(begin);
-
-    http.addHeader("Content-Type", "application/json");
-    String payload = "{\"Temperature\":" + String(temperature) + "}";
-    int httpCode = http.POST(payload);
-
-    Serial.print("httpCode: ");
-    Serial.println(httpCode);
-
-    int connected = http.connected();
-    Serial.print("connected: ");
-    Serial.println(connected);
-
-    http.end();
   }
 
   // display current temperature
-  // displayNumber(temperature);
+  displayNumber(temperature);
+}
+
+// timer interrupts
+void IRAM_ATTR onMeasurementTimer() {
+  portENTER_CRITICAL_ISR(&timer_mutex);
+  measurement_flag = true;
+  portEXIT_CRITICAL_ISR(&timer_mutex);
+}
+
+void setupMeasurementTimer() {
+    measurement_timer = timerBegin(1000000);   
+    
+    timerAttachInterrupt(measurement_timer, &onMeasurementTimer);
+
+    // set alarm to 10 seconds (10,000,000 µs)
+    timerAlarm(measurement_timer, 10000000, true, 0);
 }
 
 // wi-fi functions
-void connectToWiFi() {
+void setupWiFi() {
   WiFi.mode(WIFI_STA);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 
+  // try to connect to wi-fi
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
-    Serial.print(".");
   }
 
-  Serial.println("Connected.");
+  // acknowledge
+  Serial.print("Connected as ");
   Serial.println(WiFi.localIP());
+}
+
+void sendTemperatureToServer(double value) {
+  HTTPClient http;
+  http.begin(server_url);
+
+  http.addHeader("Content-Type", "application/json");
+  String payload = "{\"Temperature\":" + String(value) + "}";
+  http.POST(payload);
+
+  http.end();
 }
 
 // temperature functions
