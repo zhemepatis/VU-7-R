@@ -125,6 +125,8 @@ void setupWiFi() {
   WiFi.mode(WIFI_STA);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 
+  Serial.println("Connecting to WiFi...");
+
   // try to connect to wi-fi
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
