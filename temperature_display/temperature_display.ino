@@ -104,9 +104,9 @@ void IRAM_ATTR onMeasurementTimer() {
 }
 
 void setupMeasurementTimer() {
-  measurement_timer = timerBegin(1000000);   
+  measurement_timer = timerBegin(1000000);
   timerAttachInterrupt(measurement_timer, &onMeasurementTimer);
-  timerAlarm(measurement_timer, 10000000, true, 0);
+  timerAlarm(measurement_timer, 10 * 1000000, true, 0);
 }
 
 void IRAM_ATTR onDisplayTimer() {
@@ -116,7 +116,7 @@ void IRAM_ATTR onDisplayTimer() {
 void setupDisplayTimer() {
   display_timer = timerBegin(200000);
   timerAttachInterrupt(display_timer, &onDisplayTimer);
-  timerAlarm(display_timer, 1000, true, 0); // 1 kHz
+  timerAlarm(display_timer, 2000, true, 0);
 }
 
 // wi-fi functions
@@ -153,10 +153,10 @@ void sendTemperatureToServer(double value) {
 
 // temperature functions
 
-float getTemperature() {
+double getTemperature() {
   int input = analogRead(TEMPERATURE_SENSOR_PIN);
-  float voltage = input * (3.3 / 4095.0);
-  float temperature = voltage * 100.0;
+  double voltage = input * (3.3 / 4095.0);
+  double temperature = voltage * 100.0;
   return temperature;
 }
 
@@ -165,7 +165,7 @@ float getTemperature() {
 void refreshDisplay() {
     static int current_digit = 0;
 
-    int temp = (int)temperature;
+    int temp = (int) temperature;
     if (temp < 0 || temp > 99) temp = -1;
 
     int tens = temp / 10;
